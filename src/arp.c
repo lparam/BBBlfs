@@ -36,3 +36,8 @@ void make_arp(arp_hdr *arp, uint16_t opcode, const uint8_t hw_source[6],
 	memcpy(&arp->hw_dest, hw_dest, 6);
 	memcpy(&arp->ip_dest, ip_dest, 4);
 }
+
+void debug_arp(arp_hdr *arp) {
+    printf("htype: 0x%x opcode: 0x%x\n", arp->htype, arp->opcode);
+    printf("ip src: %d ip dst: %d\n", arp->ip_source, arp->ip_dest);
+}
