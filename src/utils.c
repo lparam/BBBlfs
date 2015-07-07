@@ -14,45 +14,88 @@
  *  limitations under the License.
  */
 
-#include <string.h>
 #include <stdio.h>
+#include <stdint.h>
+#include <ctype.h>
+#include <string.h>
 
-void hexDump(char *desc, void *addr, int len) {
-	int i;
-	unsigned char buff[17];
-	unsigned char *pc = (unsigned char *)addr;
+#define MAX_LINE_LENGTH_BYTES (64)
+#define DEFAULT_LINE_LENGTH_BYTES (16)
+static int
+print_buffer(const void *data, uint32_t count, uint32_t width, uint32_t linelen) {
+    /* linebuf as a union causes proper alignment */
+    union linebuf {
+        uint32_t ui[MAX_LINE_LENGTH_BYTES/sizeof(uint32_t) + 1];
+        uint16_t us[MAX_LINE_LENGTH_BYTES/sizeof(uint16_t) + 1];
+        uint8_t  uc[MAX_LINE_LENGTH_BYTES/sizeof(uint8_t) + 1];
+    } lb;
 
-	if(desc != NULL)
-		printf("%s:\n", desc);
+    uint32_t i;
+    intptr_t addr = (intptr_t)data;
 
-	for(i=0; i<len; i++) {
-		if(i!=0 && i%8==0)printf(" ");
-		if((i % 16) == 0) {
-			if(i != 0)
-				printf("  %s\n", buff);
+    if (linelen * width > MAX_LINE_LENGTH_BYTES)
+        linelen = MAX_LINE_LENGTH_BYTES / width;
+    if (linelen < 1)
+        linelen = DEFAULT_LINE_LENGTH_BYTES / width;
 
-			printf("  %04x ", i);
-		}
+    while (count) {
+        uint32_t thislinelen = linelen;
 
-		printf(" %02x", pc[i]);
+        printf("%p:", data);
 
-		if((pc[i] < 0x20) || (pc[i] > 0x7e))
-			buff[i % 16] = '.';
-		else
-			buff[i % 16] = pc[i];
-		buff[(i % 16) + 1] = '\0';
-	}
+        /* check for overflow condition */
+        if (count < thislinelen)
+            thislinelen = count;
 
-	while((i % 16) != 0) {
-		printf("   ");
-		i++;
-	}
+        /* Copy from memory into linebuf and print hex values */
+        for (i = 0; i < thislinelen; i++) {
+            uint32_t x;
+            if (width == 4)
+                x = lb.ui[i] = *(volatile uint32_t *)data;
+            else if (width == 2)
+                x = lb.us[i] = *(volatile uint16_t *)data;
+            else
+                x = lb.uc[i] = *(volatile uint8_t *)data;
+            printf(i % (linelen / 2) ? " %0*x" : "  %0*x", width * 2, x);
+#if defined(_MSC_VER)
+			(uint8_t *)data += width;
+#else
+			data += width;
+#endif
+        }
 
-	printf("  %s\n", buff);
+        while (thislinelen < linelen) {
+            /* fill line with whitespace for nice ASCII print */
+            for (i = 0; i < width * 2 + 1; i++) {
+                printf(" ");
+            }
+            linelen--;
+        }
+
+        /* Print data in ASCII characters */
+        for (i = 0; i < thislinelen * width; i++) {
+            if (!isprint(lb.uc[i]) || lb.uc[i] >= 0x80)
+                lb.uc[i] = '.';
+        }
+        lb.uc[i] = '\0';
+        printf("    %s\n", lb.uc);
+
+        /* update references */
+        addr += thislinelen * width;
+        count -= thislinelen;
+    }
+
+    return 0;
+}
+
+void
+dump_hex(const void *data, uint32_t len, char *title) {
+    printf("\t  [%s] %d octets\n", title, len);
+    print_buffer(data, len, 1, 16);
 }
 
 const char *get_filename_ext(const char *filename) {
-	const char *dot = strrchr(filename, '.');
-	if(!dot || dot == filename) return "";
-	return dot + 1;
+    const char *dot = strrchr(filename, '.');
+    if(!dot || dot == filename) return "";
+    return dot + 1;
 }
