@@ -3,4 +3,4 @@
 *.o
 *.swp
 bin/usb_flasher
-.ycm_extra_conf*
+.ycm_extra_conf.pyc
