@@ -10,7 +10,7 @@ OBJFOLDER = src
 BINFOLDER = bin
 
 SOURCES = $(wildcard $(SRCFOLDER)/*.c)
-OBJECTS = $(patsubst %.c,$(OBJFOLDER)/%.o,$(notdir $(wildcard $(SRCFOLDER)/*.c)))
+OBJECTS = $(patsubst %.c,$(OBJFOLDER)/%.o,$(notdir $(SOURCES)))
 
 all: $(OBJECTS)
 	$(CC) $^ $(LIBS) -o $(BINFOLDER)/$(TARGET)
